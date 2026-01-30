@@ -139,7 +139,7 @@ gradle assembleRequirements
 
 == Requirements
 
-* Gradle 6.0+
+* Gradle 6.0+ (tested with Gradle 9.3)
 * Java 8+
 * A `requirements.yml` file in the dataset directory (default: `./reqstool/`)
 
