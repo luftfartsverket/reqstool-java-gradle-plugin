@@ -48,318 +48,343 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
- * Task for assembling reqstool ZIP artifact.
- * Combines requirements annotations with test annotations and creates a ZIP artifact
- * containing requirements, SVCs, test results, and combined annotations.
+ * Task for assembling reqstool ZIP artifact. Combines requirements annotations with test
+ * annotations and creates a ZIP artifact containing requirements, SVCs, test results, and
+ * combined annotations.
  */
 public class RequirementsToolTask extends DefaultTask {
 
-    // Constants matching Maven plugin
-    private static final String[] OUTPUT_ARTIFACT_TEST_RESULTS_PATTERN = { "test_results/**/*.xml" };
-    public static final String INPUT_FILE_MANUAL_VERIFICATION_RESULTS_YML = "manual_verification_results.yml";
-    public static final String INPUT_FILE_REQUIREMENTS_YML = "requirements.yml";
-    public static final String INPUT_FILE_SOFTWARE_VERIFICATION_CASES_YML = "software_verification_cases.yml";
-    public static final String OUTPUT_FILE_ANNOTATIONS_YML_FILE = "annotations.yml";
-    public static final String OUTPUT_ARTIFACT_FILE_REQSTOOL_CONFIG_YML = "reqstool_config.yml";
-    public static final String OUTPUT_ARTIFACT_DIR_TEST_RESULTS = "test_results";
-    public static final String XML_IMPLEMENTATIONS = "implementations";
-    public static final String XML_REQUIREMENT_ANNOTATIONS = "requirement_annotations";
-    public static final String XML_TESTS = "tests";
-    protected static final String YAML_LANG_SERVER_SCHEMA_ANNOTATIONS = "# yaml-language-server: $schema=https://raw.githubusercontent.com/Luftfartsverket/reqstool-client/main/src/reqstool/resources/schemas/v1/annotations.schema.json";
-    protected static final String YAML_LANG_SERVER_SCHEMA_CONFIG = "# yaml-language-server: $schema=https://raw.githubusercontent.com/Luftfartsverket/reqstool-client/main/src/reqstool/resources/schemas/v1/reqstool_config.schema.json";
+	// Constants matching Maven plugin
+	private static final String[] OUTPUT_ARTIFACT_TEST_RESULTS_PATTERN = { "test_results/**/*.xml" };
 
-    private static final ObjectMapper yamlMapper;
+	public static final String INPUT_FILE_MANUAL_VERIFICATION_RESULTS_YML = "manual_verification_results.yml";
 
-    static {
-        yamlMapper = new ObjectMapper(new YAMLFactory().enable(YAMLGenerator.Feature.INDENT_ARRAYS_WITH_INDICATOR));
-        yamlMapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
-    }
+	public static final String INPUT_FILE_REQUIREMENTS_YML = "requirements.yml";
 
-    private final RegularFileProperty requirementsAnnotationsFile = getProject().getObjects().fileProperty();
-    private final RegularFileProperty svcsAnnotationsFile = getProject().getObjects().fileProperty();
-    private final RegularFileProperty outputDirectory = getProject().getObjects().fileProperty();
-    private final RegularFileProperty datasetPath = getProject().getObjects().fileProperty();
-    private final ListProperty<String> testResults = getProject().getObjects().listProperty(String.class);
-    private final Property<Boolean> skip = getProject().getObjects().property(Boolean.class);
-    private final Property<Boolean> skipAssembleZipArtifact = getProject().getObjects().property(Boolean.class);
-    private final Property<Boolean> skipAttachZipArtifact = getProject().getObjects().property(Boolean.class);
-    private final Property<String> projectName = getProject().getObjects().property(String.class);
-    private final Property<String> projectVersion = getProject().getObjects().property(String.class);
-    private final Property<File> projectBasedir = getProject().getObjects().property(File.class);
-    private final RegularFileProperty zipFile = getProject().getObjects().fileProperty();
+	public static final String INPUT_FILE_SOFTWARE_VERIFICATION_CASES_YML = "software_verification_cases.yml";
 
-    @Optional
-    @InputFile
-    public RegularFileProperty getRequirementsAnnotationsFile() {
-        return requirementsAnnotationsFile;
-    }
+	public static final String OUTPUT_FILE_ANNOTATIONS_YML_FILE = "annotations.yml";
 
-    @Optional
-    @InputFile
-    public RegularFileProperty getSvcsAnnotationsFile() {
-        return svcsAnnotationsFile;
-    }
+	public static final String OUTPUT_ARTIFACT_FILE_REQSTOOL_CONFIG_YML = "reqstool_config.yml";
 
-    @Input
-    public String getOutputDirectoryPath() {
-        File outDir = outputDirectory.getAsFile().getOrNull();
-        return outDir != null ? outDir.getAbsolutePath() : "";
-    }
+	public static final String OUTPUT_ARTIFACT_DIR_TEST_RESULTS = "test_results";
 
-    @Internal
-    public RegularFileProperty getOutputDirectory() {
-        return outputDirectory;
-    }
+	public static final String XML_IMPLEMENTATIONS = "implementations";
 
-    @InputDirectory
-    @Optional
-    public RegularFileProperty getDatasetPath() {
-        return datasetPath;
-    }
+	public static final String XML_REQUIREMENT_ANNOTATIONS = "requirement_annotations";
 
-    @Input
-    public ListProperty<String> getTestResults() {
-        return testResults;
-    }
+	public static final String XML_TESTS = "tests";
 
-    @Input
-    public Property<Boolean> getSkip() {
-        return skip;
-    }
+	protected static final String YAML_LANG_SERVER_SCHEMA_ANNOTATIONS = "# yaml-language-server: $schema=https://raw.githubusercontent.com/Luftfartsverket/reqstool-client/main/src/reqstool/resources/schemas/v1/annotations.schema.json";
 
-    @Input
-    public Property<Boolean> getSkipAssembleZipArtifact() {
-        return skipAssembleZipArtifact;
-    }
+	protected static final String YAML_LANG_SERVER_SCHEMA_CONFIG = "# yaml-language-server: $schema=https://raw.githubusercontent.com/Luftfartsverket/reqstool-client/main/src/reqstool/resources/schemas/v1/reqstool_config.schema.json";
 
-    @Input
-    public Property<Boolean> getSkipAttachZipArtifact() {
-        return skipAttachZipArtifact;
-    }
+	private static final ObjectMapper yamlMapper;
 
-    @Input
-    public Property<String> getProjectName() {
-        return projectName;
-    }
+	static {
+		yamlMapper = new ObjectMapper(new YAMLFactory().enable(YAMLGenerator.Feature.INDENT_ARRAYS_WITH_INDICATOR));
+		yamlMapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+	}
 
-    @Input
-    public Property<String> getProjectVersion() {
-        return projectVersion;
-    }
+	private final RegularFileProperty requirementsAnnotationsFile = getProject().getObjects().fileProperty();
 
-    @Input
-    public Property<File> getProjectBasedir() {
-        return projectBasedir;
-    }
+	private final RegularFileProperty svcsAnnotationsFile = getProject().getObjects().fileProperty();
 
-    @OutputFile
-    public RegularFileProperty getZipFile() {
-        return zipFile;
-    }
+	private final RegularFileProperty outputDirectory = getProject().getObjects().fileProperty();
 
-    @TaskAction
-    public void execute() {
-        if (skip.get()) {
-            getLogger().info("Skipping execution of reqstool plugin");
-            return;
-        }
+	private final RegularFileProperty datasetPath = getProject().getObjects().fileProperty();
 
-        getLogger().debug("Assembling and Attaching Reqstool Gradle Zip Artifact");
-        getLogger().info("testResults: " + Arrays.toString(testResults.get().toArray()));
+	private final ListProperty<String> testResults = getProject().getObjects().listProperty(String.class);
 
-        try {
-            JsonNode implementationsNode = yamlMapper.createObjectNode();
-            JsonNode testsNode = yamlMapper.createObjectNode();
+	private final Property<Boolean> skip = getProject().getObjects().property(Boolean.class);
 
-            File reqAnnotFile = requirementsAnnotationsFile.getAsFile().getOrNull();
-            if (reqAnnotFile != null && reqAnnotFile.exists()) {
-                implementationsNode = yamlMapper.readTree(reqAnnotFile)
-                    .path(XML_REQUIREMENT_ANNOTATIONS)
-                    .path(XML_IMPLEMENTATIONS);
-            }
+	private final Property<Boolean> skipAssembleZipArtifact = getProject().getObjects().property(Boolean.class);
 
-            File svcsAnnotFile = svcsAnnotationsFile.getAsFile().getOrNull();
-            if (svcsAnnotFile != null && svcsAnnotFile.exists()) {
-                testsNode = yamlMapper.readTree(svcsAnnotFile)
-                    .path(XML_REQUIREMENT_ANNOTATIONS)
-                    .path(XML_TESTS);
-            }
+	private final Property<Boolean> skipAttachZipArtifact = getProject().getObjects().property(Boolean.class);
 
-            JsonNode combinedOutputNode = combineOutput(implementationsNode, testsNode);
+	private final Property<String> projectName = getProject().getObjects().property(String.class);
 
-            File outDir = outputDirectory.getAsFile().get();
-            if (!outDir.exists()) {
-                outDir.mkdirs();
-            }
+	private final Property<String> projectVersion = getProject().getObjects().property(String.class);
 
-            writeCombinedOutputToFile(new File(outDir, OUTPUT_FILE_ANNOTATIONS_YML_FILE), combinedOutputNode);
+	private final Property<File> projectBasedir = getProject().getObjects().property(File.class);
 
-            if (!skipAssembleZipArtifact.get()) {
-                assembleZipArtifact();
-            } else {
-                getLogger().info("Skipping zip artifact assembly");
-            }
+	private final RegularFileProperty zipFile = getProject().getObjects().fileProperty();
 
-        } catch (IOException e) {
-            throw new GradleException("Error combining annotations or creating zip file", e);
-        }
-    }
+	@Optional
+	@InputFile
+	public RegularFileProperty getRequirementsAnnotationsFile() {
+		return requirementsAnnotationsFile;
+	}
 
-    static JsonNode combineOutput(JsonNode implementationsNode, JsonNode testsNode) {
-        ObjectNode requirementAnnotationsNode = yamlMapper.createObjectNode();
-        if (!implementationsNode.isEmpty()) {
-            requirementAnnotationsNode.set(XML_IMPLEMENTATIONS, implementationsNode);
-        }
-        if (!testsNode.isEmpty()) {
-            requirementAnnotationsNode.set(XML_TESTS, testsNode);
-        }
+	@Optional
+	@InputFile
+	public RegularFileProperty getSvcsAnnotationsFile() {
+		return svcsAnnotationsFile;
+	}
 
-        ObjectNode newNode = yamlMapper.createObjectNode();
-        newNode.set(XML_REQUIREMENT_ANNOTATIONS, requirementAnnotationsNode);
+	@Input
+	public String getOutputDirectoryPath() {
+		File outDir = outputDirectory.getAsFile().getOrNull();
+		return outDir != null ? outDir.getAbsolutePath() : "";
+	}
 
-        return newNode;
-    }
+	@Internal
+	public RegularFileProperty getOutputDirectory() {
+		return outputDirectory;
+	}
 
-    private void writeCombinedOutputToFile(File outputFile, JsonNode combinedOutputNode) throws IOException {
-        File reqAnnotFile = requirementsAnnotationsFile.getAsFile().getOrNull();
-        File svcsAnnotFile = svcsAnnotationsFile.getAsFile().getOrNull();
-        
-        getLogger().info("Combining " + reqAnnotFile + " and " + svcsAnnotFile + " into "
-                + outputFile.getAbsolutePath());
+	@InputDirectory
+	@Optional
+	public RegularFileProperty getDatasetPath() {
+		return datasetPath;
+	}
 
-        try (Writer writer = new PrintWriter(
-                new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
-            writer.write(YAML_LANG_SERVER_SCHEMA_ANNOTATIONS + System.lineSeparator());
-            yamlMapper.writeValue(writer, combinedOutputNode);
-        }
-    }
+	@Input
+	public ListProperty<String> getTestResults() {
+		return testResults;
+	}
 
-    private void assembleZipArtifact() throws IOException {
-        String zipArtifactFilename = projectName.get() + "-reqstool.zip";
-        String topLevelDir = projectName.get() + "-reqstool";
+	@Input
+	public Property<Boolean> getSkip() {
+		return skip;
+	}
 
-        File zipFileOutput = zipFile.get().getAsFile();
-        File outDir = zipFileOutput.getParentFile();
-        
-        getLogger().info("Assembling zip file: " + zipFileOutput.getAbsolutePath());
+	@Input
+	public Property<Boolean> getSkipAssembleZipArtifact() {
+		return skipAssembleZipArtifact;
+	}
 
-        try (FileOutputStream fos = new FileOutputStream(zipFileOutput); 
-             ZipOutputStream zipOut = new ZipOutputStream(fos)) {
+	@Input
+	public Property<Boolean> getSkipAttachZipArtifact() {
+		return skipAttachZipArtifact;
+	}
 
-            Map<String, Object> reqstoolConfigResources = new HashMap<String, Object>();
+	@Input
+	public Property<String> getProjectName() {
+		return projectName;
+	}
 
-            File datasetDir = datasetPath.getAsFile().get();
-            File requirementsFile = new File(datasetDir, INPUT_FILE_REQUIREMENTS_YML);
-            if (!requirementsFile.isFile()) {
-                String msg = "Missing mandatory " + INPUT_FILE_REQUIREMENTS_YML + ": "
-                        + requirementsFile.getAbsolutePath();
-                throw new GradleException(msg);
-            }
+	@Input
+	public Property<String> getProjectVersion() {
+		return projectVersion;
+	}
 
-            addFileToZipArtifact(zipOut, requirementsFile, new File(topLevelDir));
-            getLogger().info("added to " + topLevelDir + ": " + requirementsFile);
-            reqstoolConfigResources.put("requirements", requirementsFile.getName());
+	@Input
+	public Property<File> getProjectBasedir() {
+		return projectBasedir;
+	}
 
-            File svcsFile = new File(datasetDir, INPUT_FILE_SOFTWARE_VERIFICATION_CASES_YML);
-            if (svcsFile.isFile()) {
-                addFileToZipArtifact(zipOut, svcsFile, new File(topLevelDir));
-                getLogger().debug("added to " + topLevelDir + ": " + svcsFile);
-                reqstoolConfigResources.put("software_verification_cases", svcsFile.getName());
-            }
-            
-            File mvrsFile = new File(datasetDir, INPUT_FILE_MANUAL_VERIFICATION_RESULTS_YML);
-            if (mvrsFile.isFile()) {
-                addFileToZipArtifact(zipOut, mvrsFile, new File(topLevelDir));
-                getLogger().debug("added to " + topLevelDir + ": " + mvrsFile);
-                reqstoolConfigResources.put("manual_verification_results", mvrsFile.getName());
-            }
-            
-            File annotationsZipFile = new File(outDir, OUTPUT_FILE_ANNOTATIONS_YML_FILE);
-            if (annotationsZipFile.isFile()) {
-                addFileToZipArtifact(zipOut, annotationsZipFile, new File(topLevelDir));
-                getLogger().debug("added to " + topLevelDir + ": " + annotationsZipFile);
-                reqstoolConfigResources.put("annotations", annotationsZipFile.getName());
-            }
+	@OutputFile
+	public RegularFileProperty getZipFile() {
+		return zipFile;
+	}
 
-            Path dir = Paths.get(projectBasedir.get().toURI());
-            List<String> patterns = testResults.get().stream()
-                .map(pattern -> "glob:" + pattern)
-                .collect(Collectors.toList());
+	@TaskAction
+	public void execute() {
+		if (skip.get()) {
+			getLogger().info("Skipping execution of reqstool plugin");
+			return;
+		}
 
-            List<PathMatcher> matchers = patterns.stream()
-                .map(pattern -> FileSystems.getDefault().getPathMatcher(pattern))
-                .collect(Collectors.toList());
+		getLogger().debug("Assembling and Attaching Reqstool Gradle Zip Artifact");
+		getLogger().info("testResults: " + Arrays.toString(testResults.get().toArray()));
 
-            AtomicInteger testResultsCount = new AtomicInteger(0);
+		try {
+			JsonNode implementationsNode = yamlMapper.createObjectNode();
+			JsonNode testsNode = yamlMapper.createObjectNode();
 
-            Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Path relativePath = dir.relativize(file);
-                    getLogger().debug("Checking file: " + relativePath);
+			File reqAnnotFile = requirementsAnnotationsFile.getAsFile().getOrNull();
+			if (reqAnnotFile != null && reqAnnotFile.exists()) {
+				implementationsNode = yamlMapper.readTree(reqAnnotFile)
+					.path(XML_REQUIREMENT_ANNOTATIONS)
+					.path(XML_IMPLEMENTATIONS);
+			}
 
-                    if (matchers.stream().anyMatch(matcher -> matcher.matches(relativePath))) {
-                        getLogger().debug("Match found for: " + relativePath);
-                        addFileToZipArtifact(zipOut, file.toFile(),
-                                new File(topLevelDir, OUTPUT_ARTIFACT_DIR_TEST_RESULTS));
-                        testResultsCount.incrementAndGet();
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
+			File svcsAnnotFile = svcsAnnotationsFile.getAsFile().getOrNull();
+			if (svcsAnnotFile != null && svcsAnnotFile.exists()) {
+				testsNode = yamlMapper.readTree(svcsAnnotFile).path(XML_REQUIREMENT_ANNOTATIONS).path(XML_TESTS);
+			}
 
-            getLogger().debug("testResults values: " + Arrays.toString(testResults.get().toArray()));
-            getLogger().debug("added " + testResultsCount + " test_results");
-            reqstoolConfigResources.put("test_results", OUTPUT_ARTIFACT_TEST_RESULTS_PATTERN);
+			JsonNode combinedOutputNode = combineOutput(implementationsNode, testsNode);
 
-            addReqstoolConfigYamlToZip(zipOut, new File(topLevelDir), reqstoolConfigResources);
-        }
+			File outDir = outputDirectory.getAsFile().get();
+			if (!outDir.exists()) {
+				outDir.mkdirs();
+			}
 
-        getLogger().info("Assembled zip artifact: " + zipFileOutput.getAbsolutePath());
-    }
+			writeCombinedOutputToFile(new File(outDir, OUTPUT_FILE_ANNOTATIONS_YML_FILE), combinedOutputNode);
 
-    private void addFileToZipArtifact(ZipOutputStream zipOut, File file, File targetDirectory) throws IOException {
-        if (file.exists()) {
-            File entryName;
-            if (targetDirectory == null || targetDirectory.getName().isEmpty()) {
-                entryName = new File(file.getName());
-            } else {
-                entryName = new File(targetDirectory, file.getName());
-            }
+			if (!skipAssembleZipArtifact.get()) {
+				assembleZipArtifact();
+			}
+			else {
+				getLogger().info("Skipping zip artifact assembly");
+			}
 
-            getLogger().info("Adding file: " + entryName.toString());
+		}
+		catch (IOException e) {
+			throw new GradleException("Error combining annotations or creating zip file", e);
+		}
+	}
 
-            ZipEntry zipEntry = new ZipEntry(entryName.toString());
-            zipOut.putNextEntry(zipEntry);
+	static JsonNode combineOutput(JsonNode implementationsNode, JsonNode testsNode) {
+		ObjectNode requirementAnnotationsNode = yamlMapper.createObjectNode();
+		if (!implementationsNode.isEmpty()) {
+			requirementAnnotationsNode.set(XML_IMPLEMENTATIONS, implementationsNode);
+		}
+		if (!testsNode.isEmpty()) {
+			requirementAnnotationsNode.set(XML_TESTS, testsNode);
+		}
 
-            // Use Java NIO instead of Commons IO
-            byte[] bytes = Files.readAllBytes(file.toPath());
-            zipOut.write(bytes, 0, bytes.length);
-            zipOut.closeEntry();
-        }
-    }
+		ObjectNode newNode = yamlMapper.createObjectNode();
+		newNode.set(XML_REQUIREMENT_ANNOTATIONS, requirementAnnotationsNode);
 
-    private void addReqstoolConfigYamlToZip(ZipOutputStream zipOut, File topLevelDir,
-            Map<String, Object> reqstoolConfigResources) throws IOException {
-        DumperOptions options = new DumperOptions();
-        options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        options.setPrettyFlow(true);
-        Yaml yaml = new Yaml(options);
+		return newNode;
+	}
 
-        LinkedHashMap<String, Object> yamlData = new LinkedHashMap<String, Object>();
-        yamlData.put("language", "java");
-        yamlData.put("build", "gradle");
-        yamlData.put("resources", reqstoolConfigResources);
+	private void writeCombinedOutputToFile(File outputFile, JsonNode combinedOutputNode) throws IOException {
+		File reqAnnotFile = requirementsAnnotationsFile.getAsFile().getOrNull();
+		File svcsAnnotFile = svcsAnnotationsFile.getAsFile().getOrNull();
 
-        ZipEntry zipEntry = new ZipEntry(new File(topLevelDir, OUTPUT_ARTIFACT_FILE_REQSTOOL_CONFIG_YML).toString());
-        zipOut.putNextEntry(zipEntry);
+		getLogger()
+			.info("Combining " + reqAnnotFile + " and " + svcsAnnotFile + " into " + outputFile.getAbsolutePath());
 
-        Writer writer = new OutputStreamWriter(zipOut, StandardCharsets.UTF_8);
-        writer.write(String.format("%s%n", YAML_LANG_SERVER_SCHEMA_CONFIG));
-        writer.write(String.format("# version: %s%n", projectVersion.get()));
-        yaml.dump(yamlData, writer);
-        writer.flush();
+		try (Writer writer = new PrintWriter(
+				new OutputStreamWriter(new FileOutputStream(outputFile), StandardCharsets.UTF_8))) {
+			writer.write(YAML_LANG_SERVER_SCHEMA_ANNOTATIONS + System.lineSeparator());
+			yamlMapper.writeValue(writer, combinedOutputNode);
+		}
+	}
 
-        zipOut.closeEntry();
-    }
+	private void assembleZipArtifact() throws IOException {
+		String zipArtifactFilename = projectName.get() + "-reqstool.zip";
+		String topLevelDir = projectName.get() + "-reqstool";
+
+		File zipFileOutput = zipFile.get().getAsFile();
+		File outDir = zipFileOutput.getParentFile();
+
+		getLogger().info("Assembling zip file: " + zipFileOutput.getAbsolutePath());
+
+		try (FileOutputStream fos = new FileOutputStream(zipFileOutput);
+				ZipOutputStream zipOut = new ZipOutputStream(fos)) {
+
+			Map<String, Object> reqstoolConfigResources = new HashMap<String, Object>();
+
+			File datasetDir = datasetPath.getAsFile().get();
+			File requirementsFile = new File(datasetDir, INPUT_FILE_REQUIREMENTS_YML);
+			if (!requirementsFile.isFile()) {
+				String msg = "Missing mandatory " + INPUT_FILE_REQUIREMENTS_YML + ": "
+						+ requirementsFile.getAbsolutePath();
+				throw new GradleException(msg);
+			}
+
+			addFileToZipArtifact(zipOut, requirementsFile, new File(topLevelDir));
+			getLogger().info("added to " + topLevelDir + ": " + requirementsFile);
+			reqstoolConfigResources.put("requirements", requirementsFile.getName());
+
+			File svcsFile = new File(datasetDir, INPUT_FILE_SOFTWARE_VERIFICATION_CASES_YML);
+			if (svcsFile.isFile()) {
+				addFileToZipArtifact(zipOut, svcsFile, new File(topLevelDir));
+				getLogger().debug("added to " + topLevelDir + ": " + svcsFile);
+				reqstoolConfigResources.put("software_verification_cases", svcsFile.getName());
+			}
+
+			File mvrsFile = new File(datasetDir, INPUT_FILE_MANUAL_VERIFICATION_RESULTS_YML);
+			if (mvrsFile.isFile()) {
+				addFileToZipArtifact(zipOut, mvrsFile, new File(topLevelDir));
+				getLogger().debug("added to " + topLevelDir + ": " + mvrsFile);
+				reqstoolConfigResources.put("manual_verification_results", mvrsFile.getName());
+			}
+
+			File annotationsZipFile = new File(outDir, OUTPUT_FILE_ANNOTATIONS_YML_FILE);
+			if (annotationsZipFile.isFile()) {
+				addFileToZipArtifact(zipOut, annotationsZipFile, new File(topLevelDir));
+				getLogger().debug("added to " + topLevelDir + ": " + annotationsZipFile);
+				reqstoolConfigResources.put("annotations", annotationsZipFile.getName());
+			}
+
+			Path dir = Paths.get(projectBasedir.get().toURI());
+			List<String> patterns = testResults.get()
+				.stream()
+				.map(pattern -> "glob:" + pattern)
+				.collect(Collectors.toList());
+
+			List<PathMatcher> matchers = patterns.stream()
+				.map(pattern -> FileSystems.getDefault().getPathMatcher(pattern))
+				.collect(Collectors.toList());
+
+			AtomicInteger testResultsCount = new AtomicInteger(0);
+
+			Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					Path relativePath = dir.relativize(file);
+					getLogger().debug("Checking file: " + relativePath);
+
+					if (matchers.stream().anyMatch(matcher -> matcher.matches(relativePath))) {
+						getLogger().debug("Match found for: " + relativePath);
+						addFileToZipArtifact(zipOut, file.toFile(),
+								new File(topLevelDir, OUTPUT_ARTIFACT_DIR_TEST_RESULTS));
+						testResultsCount.incrementAndGet();
+					}
+					return FileVisitResult.CONTINUE;
+				}
+			});
+
+			getLogger().debug("testResults values: " + Arrays.toString(testResults.get().toArray()));
+			getLogger().debug("added " + testResultsCount + " test_results");
+			reqstoolConfigResources.put("test_results", OUTPUT_ARTIFACT_TEST_RESULTS_PATTERN);
+
+			addReqstoolConfigYamlToZip(zipOut, new File(topLevelDir), reqstoolConfigResources);
+		}
+
+		getLogger().info("Assembled zip artifact: " + zipFileOutput.getAbsolutePath());
+	}
+
+	private void addFileToZipArtifact(ZipOutputStream zipOut, File file, File targetDirectory) throws IOException {
+		if (file.exists()) {
+			File entryName;
+			if (targetDirectory == null || targetDirectory.getName().isEmpty()) {
+				entryName = new File(file.getName());
+			}
+			else {
+				entryName = new File(targetDirectory, file.getName());
+			}
+
+			getLogger().info("Adding file: " + entryName.toString());
+
+			ZipEntry zipEntry = new ZipEntry(entryName.toString());
+			zipOut.putNextEntry(zipEntry);
+
+			// Use Java NIO instead of Commons IO
+			byte[] bytes = Files.readAllBytes(file.toPath());
+			zipOut.write(bytes, 0, bytes.length);
+			zipOut.closeEntry();
+		}
+	}
+
+	private void addReqstoolConfigYamlToZip(ZipOutputStream zipOut, File topLevelDir,
+			Map<String, Object> reqstoolConfigResources) throws IOException {
+		DumperOptions options = new DumperOptions();
+		options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+		options.setPrettyFlow(true);
+		Yaml yaml = new Yaml(options);
+
+		LinkedHashMap<String, Object> yamlData = new LinkedHashMap<String, Object>();
+		yamlData.put("language", "java");
+		yamlData.put("build", "gradle");
+		yamlData.put("resources", reqstoolConfigResources);
+
+		ZipEntry zipEntry = new ZipEntry(new File(topLevelDir, OUTPUT_ARTIFACT_FILE_REQSTOOL_CONFIG_YML).toString());
+		zipOut.putNextEntry(zipEntry);
+
+		Writer writer = new OutputStreamWriter(zipOut, StandardCharsets.UTF_8);
+		writer.write(String.format("%s%n", YAML_LANG_SERVER_SCHEMA_CONFIG));
+		writer.write(String.format("# version: %s%n", projectVersion.get()));
+		yaml.dump(yamlData, writer);
+		writer.flush();
+
+		zipOut.closeEntry();
+	}
+
 }

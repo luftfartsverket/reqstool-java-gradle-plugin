@@ -10,72 +10,71 @@ import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.tasks.TaskProvider;
 
 /**
- * Gradle plugin for assembling and attaching reqstool ZIP artifacts.
- * Mimics the behavior of the reqstool-maven-plugin.
+ * Gradle plugin for assembling and attaching reqstool ZIP artifacts. Mimics the behavior
+ * of the reqstool-maven-plugin.
  */
 public class RequirementsToolPlugin implements Plugin<Project> {
 
-    @Override
-    public void apply(Project project) {
-        // Create extension for configuration
-        RequirementsToolExtension extension = project.getExtensions()
-            .create("requirementsTool", RequirementsToolExtension.class, project);
+	@Override
+	public void apply(Project project) {
+		// Create extension for configuration
+		RequirementsToolExtension extension = project.getExtensions()
+			.create("requirementsTool", RequirementsToolExtension.class, project);
 
-        // Register the assembleRequirements task
-        TaskProvider<RequirementsToolTask> assembleTask = project.getTasks()
-            .register("assembleRequirements", RequirementsToolTask.class, task -> {
-                task.setGroup("build");
-                task.setDescription("Assembles reqstool ZIP artifact with requirements annotations and test results");
-                
-                // Configure task inputs from extension
-                task.getRequirementsAnnotationsFile().set(extension.getRequirementsAnnotationsFile());
-                task.getSvcsAnnotationsFile().set(extension.getSvcsAnnotationsFile());
-                task.getOutputDirectory().set(extension.getOutputDirectory());
-                task.getDatasetPath().set(extension.getDatasetPath());
-                task.getTestResults().set(extension.getTestResults());
-                task.getSkip().set(extension.getSkip());
-                task.getSkipAssembleZipArtifact().set(extension.getSkipAssembleZipArtifact());
-                task.getSkipAttachZipArtifact().set(extension.getSkipAttachZipArtifact());
-                task.getProjectName().set(project.getName());
-                task.getProjectVersion().set(project.provider(() -> String.valueOf(project.getVersion())));
-                task.getProjectBasedir().set(project.getProjectDir());
-                
-                // Configure ZIP output file
-                String archiveBaseName = project.hasProperty("archivesBaseName") 
-                    ? String.valueOf(project.property("archivesBaseName")) 
-                    : project.getName();
-                String zipFileName = archiveBaseName + "-reqstool.zip";
-                task.getZipFile().set(
-                    extension.getOutputDirectory().map(dir -> 
-                        project.getLayout().getProjectDirectory().file(dir.getAsFile().getPath() + "/" + zipFileName)
-                    )
-                );
-            });
+		// Register the assembleRequirements task
+		TaskProvider<RequirementsToolTask> assembleTask = project.getTasks()
+			.register("assembleRequirements", RequirementsToolTask.class, task -> {
+				task.setGroup("build");
+				task.setDescription("Assembles reqstool ZIP artifact with requirements annotations and test results");
 
-        // Auto-configure Maven publishing if maven-publish plugin is applied
-        project.getPlugins().withId("maven-publish", plugin -> {
-            configureMavenPublishing(project, assembleTask);
-        });
-    }
+				// Configure task inputs from extension
+				task.getRequirementsAnnotationsFile().set(extension.getRequirementsAnnotationsFile());
+				task.getSvcsAnnotationsFile().set(extension.getSvcsAnnotationsFile());
+				task.getOutputDirectory().set(extension.getOutputDirectory());
+				task.getDatasetPath().set(extension.getDatasetPath());
+				task.getTestResults().set(extension.getTestResults());
+				task.getSkip().set(extension.getSkip());
+				task.getSkipAssembleZipArtifact().set(extension.getSkipAssembleZipArtifact());
+				task.getSkipAttachZipArtifact().set(extension.getSkipAttachZipArtifact());
+				task.getProjectName().set(project.getName());
+				task.getProjectVersion().set(project.provider(() -> String.valueOf(project.getVersion())));
+				task.getProjectBasedir().set(project.getProjectDir());
 
-    private void configureMavenPublishing(Project project, TaskProvider<RequirementsToolTask> assembleTask) {
-        PublishingExtension publishing = project.getExtensions().getByType(PublishingExtension.class);
-        
-        publishing.getPublications().create("reqstool", MavenPublication.class, publication -> {
-            String archiveBaseName = project.hasProperty("archivesBaseName") 
-                ? String.valueOf(project.property("archivesBaseName")) 
-                : project.getName();
-            
-            String zipFileName = archiveBaseName + "-reqstool.zip";
-            
-            publication.setGroupId(String.valueOf(project.getGroup()));
-            publication.setArtifactId(project.getName());
-            publication.setVersion(String.valueOf(project.getVersion()));
-            
-            publication.artifact(assembleTask.flatMap(task -> task.getZipFile()), artifact -> {
-                artifact.setClassifier("reqstool");
-                artifact.setExtension("zip");
-            });
-        });
-    }
+				// Configure ZIP output file
+				String archiveBaseName = project.hasProperty("archivesBaseName")
+						? String.valueOf(project.property("archivesBaseName")) : project.getName();
+				String zipFileName = archiveBaseName + "-reqstool.zip";
+				task.getZipFile()
+					.set(extension.getOutputDirectory()
+						.map(dir -> project.getLayout()
+							.getProjectDirectory()
+							.file(dir.getAsFile().getPath() + "/" + zipFileName)));
+			});
+
+		// Auto-configure Maven publishing if maven-publish plugin is applied
+		project.getPlugins().withId("maven-publish", plugin -> {
+			configureMavenPublishing(project, assembleTask);
+		});
+	}
+
+	private void configureMavenPublishing(Project project, TaskProvider<RequirementsToolTask> assembleTask) {
+		PublishingExtension publishing = project.getExtensions().getByType(PublishingExtension.class);
+
+		publishing.getPublications().create("reqstool", MavenPublication.class, publication -> {
+			String archiveBaseName = project.hasProperty("archivesBaseName")
+					? String.valueOf(project.property("archivesBaseName")) : project.getName();
+
+			String zipFileName = archiveBaseName + "-reqstool.zip";
+
+			publication.setGroupId(String.valueOf(project.getGroup()));
+			publication.setArtifactId(project.getName());
+			publication.setVersion(String.valueOf(project.getVersion()));
+
+			publication.artifact(assembleTask.flatMap(task -> task.getZipFile()), artifact -> {
+				artifact.setClassifier("reqstool");
+				artifact.setExtension("zip");
+			});
+		});
+	}
+
 }

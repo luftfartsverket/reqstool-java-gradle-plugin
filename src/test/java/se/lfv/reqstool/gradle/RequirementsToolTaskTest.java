@@ -19,143 +19,143 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class RequirementsToolTaskTest {
 
-    @TempDir
-    Path tempDir;
+	@TempDir
+	Path tempDir;
 
-    private Project project;
-    private RequirementsToolTask task;
+	private Project project;
 
-    @BeforeEach
-    void setup() {
-        project = ProjectBuilder.builder()
-            .withProjectDir(tempDir.toFile())
-            .build();
-        
-        task = project.getTasks().create("testTask", RequirementsToolTask.class);
-    }
+	private RequirementsToolTask task;
 
-    @Test
-    void testCombineOutput_bothEmpty() {
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        JsonNode implementations = mapper.createObjectNode();
-        JsonNode tests = mapper.createObjectNode();
+	@BeforeEach
+	void setup() {
+		project = ProjectBuilder.builder().withProjectDir(tempDir.toFile()).build();
 
-        JsonNode result = RequirementsToolTask.combineOutput(implementations, tests);
+		task = project.getTasks().create("testTask", RequirementsToolTask.class);
+	}
 
-        assertNotNull(result);
-        assertTrue(result.has("requirement_annotations"));
-        JsonNode reqAnnotations = result.get("requirement_annotations");
-        assertFalse(reqAnnotations.has("implementations"));
-        assertFalse(reqAnnotations.has("tests"));
-    }
+	@Test
+	void testCombineOutput_bothEmpty() {
+		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+		JsonNode implementations = mapper.createObjectNode();
+		JsonNode tests = mapper.createObjectNode();
 
-    @Test
-    void testCombineOutput_withImplementations() throws IOException {
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        
-        String implJson = "{\"impl1\": {\"id\": \"REQ-001\"}}";
-        JsonNode implementations = mapper.readTree(implJson);
-        JsonNode tests = mapper.createObjectNode();
+		JsonNode result = RequirementsToolTask.combineOutput(implementations, tests);
 
-        JsonNode result = RequirementsToolTask.combineOutput(implementations, tests);
+		assertNotNull(result);
+		assertTrue(result.has("requirement_annotations"));
+		JsonNode reqAnnotations = result.get("requirement_annotations");
+		assertFalse(reqAnnotations.has("implementations"));
+		assertFalse(reqAnnotations.has("tests"));
+	}
 
-        assertNotNull(result);
-        assertTrue(result.has("requirement_annotations"));
-        JsonNode reqAnnotations = result.get("requirement_annotations");
-        assertTrue(reqAnnotations.has("implementations"));
-        assertFalse(reqAnnotations.has("tests"));
-    }
+	@Test
+	void testCombineOutput_withImplementations() throws IOException {
+		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 
-    @Test
-    void testCombineOutput_withTests() throws IOException {
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        
-        JsonNode implementations = mapper.createObjectNode();
-        String testsJson = "{\"test1\": {\"id\": \"SVC-001\"}}";
-        JsonNode tests = mapper.readTree(testsJson);
+		String implJson = "{\"impl1\": {\"id\": \"REQ-001\"}}";
+		JsonNode implementations = mapper.readTree(implJson);
+		JsonNode tests = mapper.createObjectNode();
 
-        JsonNode result = RequirementsToolTask.combineOutput(implementations, tests);
+		JsonNode result = RequirementsToolTask.combineOutput(implementations, tests);
 
-        assertNotNull(result);
-        assertTrue(result.has("requirement_annotations"));
-        JsonNode reqAnnotations = result.get("requirement_annotations");
-        assertFalse(reqAnnotations.has("implementations"));
-        assertTrue(reqAnnotations.has("tests"));
-    }
+		assertNotNull(result);
+		assertTrue(result.has("requirement_annotations"));
+		JsonNode reqAnnotations = result.get("requirement_annotations");
+		assertTrue(reqAnnotations.has("implementations"));
+		assertFalse(reqAnnotations.has("tests"));
+	}
 
-    @Test
-    void testCombineOutput_withBoth() throws IOException {
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        
-        String implJson = "{\"impl1\": {\"id\": \"REQ-001\"}}";
-        JsonNode implementations = mapper.readTree(implJson);
-        
-        String testsJson = "{\"test1\": {\"id\": \"SVC-001\"}}";
-        JsonNode tests = mapper.readTree(testsJson);
+	@Test
+	void testCombineOutput_withTests() throws IOException {
+		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 
-        JsonNode result = RequirementsToolTask.combineOutput(implementations, tests);
+		JsonNode implementations = mapper.createObjectNode();
+		String testsJson = "{\"test1\": {\"id\": \"SVC-001\"}}";
+		JsonNode tests = mapper.readTree(testsJson);
 
-        assertNotNull(result);
-        assertTrue(result.has("requirement_annotations"));
-        JsonNode reqAnnotations = result.get("requirement_annotations");
-        assertTrue(reqAnnotations.has("implementations"));
-        assertTrue(reqAnnotations.has("tests"));
-    }
+		JsonNode result = RequirementsToolTask.combineOutput(implementations, tests);
 
-    @Test
-    void testTaskConfiguration() {
-        RequirementsToolExtension extension = project.getExtensions()
-            .create("requirementsTool", RequirementsToolExtension.class, project);
+		assertNotNull(result);
+		assertTrue(result.has("requirement_annotations"));
+		JsonNode reqAnnotations = result.get("requirement_annotations");
+		assertFalse(reqAnnotations.has("implementations"));
+		assertTrue(reqAnnotations.has("tests"));
+	}
 
-        task.getRequirementsAnnotationsFile().set(extension.getRequirementsAnnotationsFile());
-        task.getSvcsAnnotationsFile().set(extension.getSvcsAnnotationsFile());
-        task.getOutputDirectory().set(extension.getOutputDirectory());
-        task.getDatasetPath().set(extension.getDatasetPath());
-        task.getTestResults().set(extension.getTestResults());
-        task.getSkip().set(extension.getSkip());
-        task.getSkipAssembleZipArtifact().set(extension.getSkipAssembleZipArtifact());
-        task.getProjectName().set(project.getName());
-        task.getProjectVersion().set("1.0.0");
+	@Test
+	void testCombineOutput_withBoth() throws IOException {
+		ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 
-        assertNotNull(task.getOutputDirectory().get());
-        assertNotNull(task.getDatasetPath().get());
-        assertFalse(task.getSkip().get());
-        assertFalse(task.getSkipAssembleZipArtifact().get());
-    }
+		String implJson = "{\"impl1\": {\"id\": \"REQ-001\"}}";
+		JsonNode implementations = mapper.readTree(implJson);
 
-    @Test
-    void testSkipExecution() {
-        task.getSkip().set(true);
-        task.getProjectName().set(project.getName());
-        task.getProjectVersion().set("1.0.0");
-        task.getProjectBasedir().set(tempDir.toFile());
-        task.getOutputDirectory().set(tempDir.resolve("build/reqstool").toFile());
-        task.getDatasetPath().set(tempDir.resolve("reqstool").toFile());
-        task.getTestResults().set(java.util.Arrays.asList("build/test-results/**/*.xml"));
+		String testsJson = "{\"test1\": {\"id\": \"SVC-001\"}}";
+		JsonNode tests = mapper.readTree(testsJson);
 
-        // Should not throw exception when skip is true
-        assertDoesNotThrow(() -> task.execute());
-    }
+		JsonNode result = RequirementsToolTask.combineOutput(implementations, tests);
 
-    @Test
-    void testMissingRequirementsFile() throws IOException {
-        // Setup directories
-        File outputDir = tempDir.resolve("build/reqstool").toFile();
-        File datasetDir = tempDir.resolve("reqstool").toFile();
-        datasetDir.mkdirs();
+		assertNotNull(result);
+		assertTrue(result.has("requirement_annotations"));
+		JsonNode reqAnnotations = result.get("requirement_annotations");
+		assertTrue(reqAnnotations.has("implementations"));
+		assertTrue(reqAnnotations.has("tests"));
+	}
 
-        task.getSkip().set(false);
-        task.getSkipAssembleZipArtifact().set(false);
-        task.getProjectName().set("test-project");
-        task.getProjectVersion().set("1.0.0");
-        task.getProjectBasedir().set(tempDir.toFile());
-        task.getOutputDirectory().set(outputDir);
-        task.getDatasetPath().set(datasetDir);
-        task.getTestResults().set(java.util.Arrays.asList("build/test-results/**/*.xml"));
-        task.getZipFile().set(new File(outputDir, "test-project-reqstool.zip"));
+	@Test
+	void testTaskConfiguration() {
+		RequirementsToolExtension extension = project.getExtensions()
+			.create("requirementsTool", RequirementsToolExtension.class, project);
 
-        // Should throw exception when requirements.yml is missing
-        Exception exception = assertThrows(Exception.class, () -> task.execute());
-        assertTrue(exception.getMessage().contains("requirements.yml"));
-    }
+		task.getRequirementsAnnotationsFile().set(extension.getRequirementsAnnotationsFile());
+		task.getSvcsAnnotationsFile().set(extension.getSvcsAnnotationsFile());
+		task.getOutputDirectory().set(extension.getOutputDirectory());
+		task.getDatasetPath().set(extension.getDatasetPath());
+		task.getTestResults().set(extension.getTestResults());
+		task.getSkip().set(extension.getSkip());
+		task.getSkipAssembleZipArtifact().set(extension.getSkipAssembleZipArtifact());
+		task.getProjectName().set(project.getName());
+		task.getProjectVersion().set("1.0.0");
+
+		assertNotNull(task.getOutputDirectory().get());
+		assertNotNull(task.getDatasetPath().get());
+		assertFalse(task.getSkip().get());
+		assertFalse(task.getSkipAssembleZipArtifact().get());
+	}
+
+	@Test
+	void testSkipExecution() {
+		task.getSkip().set(true);
+		task.getProjectName().set(project.getName());
+		task.getProjectVersion().set("1.0.0");
+		task.getProjectBasedir().set(tempDir.toFile());
+		task.getOutputDirectory().set(tempDir.resolve("build/reqstool").toFile());
+		task.getDatasetPath().set(tempDir.resolve("reqstool").toFile());
+		task.getTestResults().set(java.util.Arrays.asList("build/test-results/**/*.xml"));
+
+		// Should not throw exception when skip is true
+		assertDoesNotThrow(() -> task.execute());
+	}
+
+	@Test
+	void testMissingRequirementsFile() throws IOException {
+		// Setup directories
+		File outputDir = tempDir.resolve("build/reqstool").toFile();
+		File datasetDir = tempDir.resolve("reqstool").toFile();
+		datasetDir.mkdirs();
+
+		task.getSkip().set(false);
+		task.getSkipAssembleZipArtifact().set(false);
+		task.getProjectName().set("test-project");
+		task.getProjectVersion().set("1.0.0");
+		task.getProjectBasedir().set(tempDir.toFile());
+		task.getOutputDirectory().set(outputDir);
+		task.getDatasetPath().set(datasetDir);
+		task.getTestResults().set(java.util.Arrays.asList("build/test-results/**/*.xml"));
+		task.getZipFile().set(new File(outputDir, "test-project-reqstool.zip"));
+
+		// Should throw exception when requirements.yml is missing
+		Exception exception = assertThrows(Exception.class, () -> task.execute());
+		assertTrue(exception.getMessage().contains("requirements.yml"));
+	}
+
 }
