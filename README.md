@@ -1,1 +1,0 @@
-# reqstool-java-gradle-plugin

@@ -1,0 +1,50 @@
+plugins {
+    id 'java-gradle-plugin'
+    id 'java-library'
+    id 'maven-publish'
+    id 'io.spring.javaformat' version '0.0.47'
+}
+
+group = 'se.lfv.reqstool'
+version = '0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    mavenCentral()
+}
+
+gradlePlugin {
+    plugins {
+        reqstoolPlugin {
+            id = 'se.lfv.reqstool'
+            implementationClass = 'se.lfv.reqstool.gradle.RequirementsToolPlugin'
+            displayName = 'Reqstool Gradle Plugin'
+            description = 'Gradle plugin for assembling and attaching reqstool ZIP artifacts'
+            tags.set(['reqstool', 'requirements', 'verification', 'testing'] )
+        }
+    }
+}
+
+dependencies {
+    // Jackson for YAML processing
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.3'
+    
+    // SnakeYAML for reqstool_config.yml generation
+    implementation 'org.yaml:snakeyaml:2.3'
+    
+    // Testing - JUnit BOM for version management
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter-api'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}

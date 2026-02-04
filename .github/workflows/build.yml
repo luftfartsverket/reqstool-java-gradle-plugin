@@ -1,0 +1,22 @@
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: "temurin"
+      - name: Build
+        run: ./gradlew clean build
