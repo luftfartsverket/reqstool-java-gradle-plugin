@@ -35,7 +35,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.3'
     
     // SnakeYAML for reqstool_config.yml generation
-    implementation 'org.yaml:snakeyaml:2.3'
+    implementation 'org.yaml:snakeyaml:2.5'
     
     // Testing - JUnit BOM for version management
     testImplementation platform('org.junit:junit-bom:5.11.4')
